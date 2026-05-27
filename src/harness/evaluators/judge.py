@@ -131,7 +131,7 @@ class JudgeEvaluator:
         # system being tested. Minimize the noise we can control.
         try:
             llm_response = self._client.complete(
-                LLMRequest(prompt=prompt, temperature=0.0, max_tokens=1024)
+                LLMRequest(prompt=prompt, temperature=0.0, max_tokens=2048)
             )
         except Exception as exc:  # noqa: BLE001 — we want to catch ALL LLM-call failures
             # WHY ERROR not FAIL: the judge itself broke (timeout, rate limit,
