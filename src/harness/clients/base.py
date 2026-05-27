@@ -8,10 +8,9 @@ WHY this matters:
   THIS interface, never directly to Groq or Gemini SDKs. Swapping providers,
   adding new ones, or mocking for tests becomes a one-line change.
 
-  Hiring managers reading this code see:
-    - You understand abstraction
-    - You don't couple to vendors
-    - You think about testability from day one
+    - understand abstraction
+    - don't couple to vendors
+    - design for testability (mocking, tracing)
 """
 
 from dataclasses import dataclass, field

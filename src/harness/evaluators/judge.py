@@ -131,7 +131,7 @@ class JudgeEvaluator:
         # system being tested. Minimize the noise we can control.
         try:
             llm_response = self._client.complete(
-                LLMRequest(prompt=prompt, temperature=0.0, max_tokens=256)
+                LLMRequest(prompt=prompt, temperature=0.0, max_tokens=1024)
             )
         except Exception as exc:  # noqa: BLE001 — we want to catch ALL LLM-call failures
             # WHY ERROR not FAIL: the judge itself broke (timeout, rate limit,
@@ -146,8 +146,33 @@ class JudgeEvaluator:
                 metadata={"exception_type": type(exc).__name__},
             )
 
+        
         # ----- Step 4: parse the judge's response -----
         cleaned = self._strip_code_fences(llm_response.text)
+
+        # WHY this check before JSON parse: Gemini 2.5's "thinking tokens"
+        # can consume the max_tokens budget before the visible response is
+        # complete, producing truncated JSON like '{"score": 4, "rationale": "'.
+        # We surface this as a distinct, actionable error instead of letting
+        # json.loads report a misleading "Unterminated string" message.
+        finish_reason = (llm_response.finish_reason or "").upper()
+        looks_truncated = finish_reason in {"MAX_TOKENS", "LENGTH"} or not cleaned.rstrip().endswith("}")
+        if looks_truncated:
+            return EvalResult(
+                evaluator=self.name,
+                status=EvalStatus.ERROR,
+                score=0.0,
+                rationale=(
+                    f"Judge response was truncated before completion "
+                    f"(finish_reason={finish_reason or 'unknown'}). "
+                    f"Increase max_tokens for the judge."
+                ),
+                metadata={
+                    "judge_raw_output": llm_response.text,
+                    "finish_reason": llm_response.finish_reason,
+                },
+            )
+
         try:
             parsed_dict = json.loads(cleaned)
         except json.JSONDecodeError as exc:

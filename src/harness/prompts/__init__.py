@@ -10,4 +10,5 @@ __all__ = [
     "JudgeRubric",
     "build_judge_prompt",
     "get_rubric",
+    "get_rubric2",
 ]

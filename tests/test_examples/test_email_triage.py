@@ -35,6 +35,7 @@ from pydantic import BaseModel
 from harness.clients import GeminiClient, GroqClient, LLMRequest
 from harness.evaluators import EvalStatus, JudgeEvaluator, SchemaEvaluator
 from harness.prompts import get_rubric
+from harness.tracing import TraceWriter
 
 
 # =============================================================================
@@ -109,20 +110,23 @@ def test_email_triage_with_schema_and_judge() -> None:
       - This single test demonstrates the full harness loop:
           SUT call → schema check → judge check → results
     """
+    trace_writer = TraceWriter()
+    test_name = "email_triage"
 
     # ----- Step 1: run the system-under-test (Groq) -----
     with GroqClient() as groq:
-        sut_response = groq.complete(
-            LLMRequest(
-                prompt=_CUSTOMER_EMAIL,
-                system=_TRIAGE_SYSTEM_PROMPT,
-                max_tokens=256,
-            )
+        sut_request = LLMRequest(
+            prompt=_CUSTOMER_EMAIL,
+            system=_TRIAGE_SYSTEM_PROMPT,
+            max_tokens=256,
         )
+        sut_response = groq.complete(sut_request)
+    trace_writer.write_llm_call(test_name=test_name, request=sut_request, response=sut_response)
 
     # ----- Step 2: schema evaluation (deterministic, fast, free) -----
     schema_evaluator = SchemaEvaluator(schema=TicketTriage, name="schema:ticket")
     schema_result = schema_evaluator.evaluate(sut_response.text)
+    trace_writer.write_evaluation(test_name=test_name, result=schema_result)
 
     # ----- Step 3: judge evaluation on accuracy (probabilistic, cheap, LLM call) -----
     with GeminiClient() as gemini:
@@ -137,6 +141,7 @@ def test_email_triage_with_schema_and_judge() -> None:
             response=sut_response.text,
             context={"user_input": _CUSTOMER_EMAIL},
         )
+        trace_writer.write_evaluation(test_name=test_name, result=judge_result)
 
     # ----- Step 4: print the demo content -----
     # WHY all this print formatting: this output IS the demo. When the PM is
@@ -153,6 +158,7 @@ def test_email_triage_with_schema_and_judge() -> None:
     print(f"  {schema_result}")
     print(f"  {judge_result}")
     print(f"{'=' * 70}\n")
+    print(f"\nTrace files written to: {trace_writer.trace_dir.resolve()}")
 
     # ----- Step 5: assertions -----
     # WHY assert on schema but not judge: schema is deterministic — if it fails,
