@@ -17,6 +17,7 @@ import httpx
 
 from harness.clients.base import LLMRequest, LLMResponse
 from harness.config.settings import settings
+from typing import Any
 
 # WHY URL has the model in it: Gemini's REST endpoint embeds the model in the path,
 # unlike OpenAI-compatible APIs that put it in the body. Different shape entirely.
@@ -57,7 +58,7 @@ class GeminiClient:
         # Each turn has a role ("user" or "model" — note: "model" not "assistant").
         contents = [{"role": "user", "parts": [{"text": request.prompt}]}]
 
-        payload: dict = {
+        payload: dict[str, Any] = {
             "contents": contents,
             "generationConfig": {
                 "temperature": request.temperature,

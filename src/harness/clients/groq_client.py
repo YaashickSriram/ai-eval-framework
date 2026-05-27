@@ -15,6 +15,7 @@ import httpx
 
 from harness.clients.base import LLMRequest, LLMResponse
 from harness.config.settings import settings
+from typing import Any, Protocol, runtime_checkable
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -47,7 +48,7 @@ class GroqClient:
                 stacklevel=2,
             )
         self._http = httpx.Client(timeout=60.0, verify=verify_tls)
-        
+
     def complete(self, request: LLMRequest) -> LLMResponse:
         model = request.model or self._default_model
 
@@ -56,7 +57,7 @@ class GroqClient:
             messages.append({"role": "system", "content": request.system})
         messages.append({"role": "user", "content": request.prompt})
 
-        payload: dict = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "temperature": request.temperature,
@@ -100,4 +101,4 @@ class GroqClient:
         return self
 
     def __exit__(self, *args: object) -> None:
-        self._http.close()                      
+        self._http.close()

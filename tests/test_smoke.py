@@ -67,3 +67,56 @@ def test_both_clients_satisfy_the_protocol() -> None:
         response = client.complete(LLMRequest(prompt="Say hi", max_tokens=256))
         assert response.text
         assert response.provider in {"groq", "gemini"}
+
+@pytest.mark.integration
+def test_real_judge_evaluates_real_llm_response() -> None:
+    """End-to-end: Groq produces a response, Gemini judges it on relevance.
+
+    THIS IS THE DEMO MOMENT. When you run this, you can watch the harness
+    do AI-judging-AI for real, with real models, on a realistic task.
+    """
+    from harness.evaluators import EvalStatus, JudgeEvaluator
+    from harness.prompts import get_rubric
+
+    user_question = "How do I reset my password?"
+
+    # ----- Step 1: get a response from Groq (system under test) -----
+    with GroqClient() as groq:
+        sut_response = groq.complete(
+            LLMRequest(
+                prompt=user_question,
+                system=(
+                    "You are a helpful customer support agent. "
+                    "Answer the user's question directly and concisely."
+                ),
+                max_tokens=256,
+            )
+        )
+
+    # ----- Step 2: Gemini judges Groq's response on relevance -----
+    with GeminiClient() as gemini:
+        evaluator = JudgeEvaluator(
+            client=gemini,
+            rubric=get_rubric("relevance"),
+            threshold=0.75,
+        )
+        result = evaluator.evaluate(
+            response=sut_response.text,
+            context={"user_input": user_question},
+        )
+
+    # ----- Step 3: print the demo-worthy info -----
+    # WHY print (not log): when we run this manually for the PM demo,
+    # we WANT this on stdout so the demo audience sees what happened.
+    print(f"\n{'=' * 70}")
+    print(f"USER:        {user_question}")
+    print(f"SUT (Groq):  {sut_response.text}")
+    print(f"JUDGE:       {result}")
+    print(f"{'=' * 70}\n")
+
+    # We expect a competent model to produce a relevant answer.
+    # If the test fails, either: (a) the model genuinely failed, OR
+    # (b) the judge was too strict. Either is a teaching moment for the demo.
+    assert result.status != EvalStatus.ERROR, (
+        f"Judge itself failed: {result.rationale}"
+    )

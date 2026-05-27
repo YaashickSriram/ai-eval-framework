@@ -16,6 +16,7 @@ WHY this matters:
 
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,7 @@ class LLMResponse:
     finish_reason: str | None = None
     # WHY raw: kept for debugging — if a provider returns something weird,
     # we can inspect the original payload without re-running the call.
-    raw: dict | None = None
+    raw: dict[str, Any] | None = None
 
 
 @runtime_checkable
